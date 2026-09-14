@@ -727,10 +727,18 @@ function commitDelRaw(p, s, n) {
     var encPath = p.split('/').map(encodeURIComponent).join('/');
     
     api('/contents/' + encPath, 'DELETE', {message:'Del '+n, sha:s}).then(function(){
+        // 同步从首页展示列表移除该文件引用
+        var ix = activeImgs.indexOf(n);
+        if(ix !== -1) { activeImgs.splice(ix, 1); }
+        var ia = activeAudio.indexOf(n);
+        if(ia !== -1) { activeAudio.splice(ia, 1); }
+        return saveIdx(true);
+    }).then(function(){
         msg('已彻底删除');
         loadData();
     }).catch(function(){ 
         msg('删除失败'); 
+        loadData();
     });
 }
 
@@ -1684,6 +1692,7 @@ function openBs() {
             h += '<div class="bs-item" onclick="openRename()">重命名</div>';
             h += '<div class="bs-item" onclick="startMulti(true)">多选</div>';
             h += '<div class="bs-item" style="color:var(--danger);" onclick="safeAction(\'移至素材\', \'确认移出首页展示吗？\', function(){disA(\'img\', \''+curName+'\')})">禁用</div>';
+            h += '<div class="bs-item" style="color:var(--danger);" onclick="safeAction(\'删除\', \'不可恢复，确认执行吗？\', function(){commitDelRaw(\''+curPath+'\',\''+curSha+'\',\''+curName+'\')})">删除</div>';
         } else {
             h += '<div class="bs-item" style="color:var(--safe);" onclick="enM(\'img\', \''+curName+'\')">启用</div>';
             h += '<div class="bs-item" onclick="openRename()">重命名</div>';
@@ -1696,6 +1705,7 @@ function openBs() {
             h += '<div class="bs-item" onclick="openRename()">重命名</div>';
             h += '<div class="bs-item" onclick="startMulti(true)">多选</div>';
             h += '<div class="bs-item" style="color:var(--danger);" onclick="safeAction(\'移至素材\', \'确认移出首页展示吗？\', function(){disA(\'audio\', \''+curName+'\')})">禁用</div>';
+            h += '<div class="bs-item" style="color:var(--danger);" onclick="safeAction(\'删除\', \'不可恢复，确认执行吗？\', function(){commitDelRaw(\''+curPath+'\',\''+curSha+'\',\''+curName+'\')})">删除</div>';
         } else {
             h += '<div class="bs-item" style="color:var(--safe);" onclick="enM(\'audio\', \''+curName+'\')">启用</div>';
             h += '<div class="bs-item" onclick="openRename()">重命名</div>';
