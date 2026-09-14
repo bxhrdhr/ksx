@@ -221,6 +221,14 @@ nav { position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: #
         <button class="btn-save-inline" onclick="saveField('intro')">保存</button>
     </div>
 
+    <div style="font-size:12px; color:var(--dim); margin:15px 0 5px;">纪念时间（分手 / 最后聊天）</div>
+    <input type="text" id="mem-break" style="margin-top:0;" placeholder="分手时间，如 2025-05-20 20:00:00">
+    <input type="text" id="mem-chat" style="margin-top:6px;" placeholder="最后聊天，如 2025.11.23 01:00">
+    <div class="action-bar" id="act-mem" style="display:flex; margin-top:8px;">
+        <button class="btn-cancel-inline" onclick="loadMemTime()">还原</button>
+        <button class="btn-save-inline" onclick="saveMemTime()">保存时间</button>
+    </div>
+
     <div style="font-size:12px; color:var(--dim); margin:15px 0 5px;">字母</div>
     <input type="text" id="site-ui-title" style="margin-top:0;" oninput="checkChange('site-ui-title', 'act-ui-title')">
     <div class="action-bar" id="act-ui-title">
@@ -564,6 +572,7 @@ function loadData() {
     }
     fetchCloudData(!!localData, false);
     autoRestorePreviews();
+    loadMemTime();
 }
 
 
@@ -1008,6 +1017,38 @@ function saveField(type) {
 
 
 
+
+
+/* 纪念时间：读取/保存 js/分手时间.js 中的分手时间与最后聊天时间 */
+function loadMemTime() {
+    var p = 'js/' + encodeURIComponent('分手时间.js');
+    api('/contents/' + p).then(function(r){
+        var c = bD(r.content);
+        var m1 = c.match(/const start = new Date\('([^']*)'\)/);
+        var m2 = c.match(/const lastChat = '([^']*)'/);
+        if(m1) document.getElementById('mem-break').value = m1[1];
+        if(m2) document.getElementById('mem-chat').value = m2[1];
+    }).catch(function(){});
+}
+
+function saveMemTime() {
+    var brk = document.getElementById('mem-break').value.trim();
+    var chat = document.getElementById('mem-chat').value.trim();
+    if(!brk && !chat) return msg('请先填写时间');
+    msg('保存中...', true);
+    var p = 'js/' + encodeURIComponent('分手时间.js');
+    api('/contents/' + p).then(function(r){
+        var c = bD(r.content);
+        var n = c;
+        if(brk) n = n.replace(/const start = new Date\('[^']*'\)/, "const start = new Date('" + brk + "')");
+        if(chat) n = n.replace(/const lastChat = '[^']*'/, "const lastChat = '" + chat + "'");
+        if(n === c) throw new Error('no match');
+        return api('/contents/' + p, 'PUT', { message: 'Update 纪念时间', content: bE(n), sha: r.sha });
+    }).then(function(){
+        msg('纪念时间已保存，稍后生效');
+        loadMemTime();
+    }).catch(function(){ msg('保存失败，请重试'); });
+}
 
 
 function parseIdx() {
