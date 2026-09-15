@@ -229,6 +229,28 @@ nav { position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: #
         <button class="btn-save-inline" onclick="saveMemTime()">保存时间</button>
     </div>
 
+    <div style="font-size:12px; color:var(--dim); margin:18px 0 5px;">开场文字（首页进入前的字幕）</div>
+    <input type="text" id="txt-eyebrow" style="margin-top:0;" placeholder="眉标，如 阚双雪致 · 我们曾看过的光">
+    <input type="text" id="txt-line1" style="margin-top:6px;" placeholder="标题第一行，如 看过的风景">
+    <input type="text" id="txt-line2" style="margin-top:6px;" placeholder="标题第二行，如 我都守着">
+    <input type="text" id="txt-sub" style="margin-top:6px;" placeholder="副文，如 轻轻一点 · 回到那些日子">
+    <input type="text" id="txt-cta" style="margin-top:6px;" placeholder="进入按钮，如 进入回忆">
+    <div class="action-bar" id="act-txt" style="display:flex; margin-top:8px;">
+        <button class="btn-cancel-inline" onclick="loadIntroTexts()">还原</button>
+        <button class="btn-save-inline" onclick="saveIntroTexts()">保存开场文字</button>
+    </div>
+
+    <div style="font-size:12px; color:var(--dim); margin:18px 0 5px;">404 页面文字（网址输错时显示）</div>
+    <input type="text" id="t404-title" style="margin-top:0;" placeholder="页签标题，如 页面走丢了 · 温故流年">
+    <input type="text" id="t404-t" style="margin-top:6px;" placeholder="主文，如 这条路，走不到回忆里了">
+    <input type="text" id="t404-s" style="margin-top:6px;" placeholder="副文，如 页面走丢了 · 回忆还在原地">
+    <input type="text" id="t404-go" style="margin-top:6px;" placeholder="返回按钮，如 回到主页">
+    <input type="text" id="t404-hint" style="margin-top:6px;" placeholder="底部提示，如 若没有自动跳转，点上面的按钮">
+    <div class="action-bar" id="act-404" style="display:flex; margin-top:8px;">
+        <button class="btn-cancel-inline" onclick="load404Texts()">还原</button>
+        <button class="btn-save-inline" onclick="save404Texts()">保存404文字</button>
+    </div>
+
     <div style="font-size:12px; color:var(--dim); margin:15px 0 5px;">字母</div>
     <input type="text" id="site-ui-title" style="margin-top:0;" oninput="checkChange('site-ui-title', 'act-ui-title')">
     <div class="action-bar" id="act-ui-title">
@@ -573,6 +595,8 @@ function loadData() {
     fetchCloudData(!!localData, false);
     autoRestorePreviews();
     loadMemTime();
+    loadIntroTexts();
+    load404Texts();
 }
 
 
@@ -1047,6 +1071,72 @@ function saveMemTime() {
     }).then(function(){
         msg('纪念时间已保存，稍后生效');
         loadMemTime();
+    }).catch(function(){ msg('保存失败，请重试'); });
+}
+
+
+/* ===== 开场文字（index.html）===== */
+function loadIntroTexts() {
+    api('/contents/index.html').then(function(r){
+        var c = bD(r.content);
+        var m, lines = c.match(/<p class="i-line">([\s\S]*?)<\/p>/g) || [];
+        m = c.match(/<p class="i-eyebrow">([\s\S]*?)<\/p>/); if(m) document.getElementById('txt-eyebrow').value = m[1];
+        if(lines[0]) document.getElementById('txt-line1').value = lines[0].replace(/<[^>]*>/g,'');
+        if(lines[1]) document.getElementById('txt-line2').value = lines[1].replace(/<[^>]*>/g,'');
+        m = c.match(/<p class="i-sub">([\s\S]*?)<\/p>/); if(m) document.getElementById('txt-sub').value = m[1];
+        m = c.match(/<button class="intro-cta"[^>]*>([\s\S]*?)<\/button>/); if(m) document.getElementById('txt-cta').value = m[1];
+    }).catch(function(){});
+}
+
+function saveIntroTexts() {
+    var g = function(id){ return document.getElementById(id).value.trim(); };
+    var eyebrow = g('txt-eyebrow'), line1 = g('txt-line1'), line2 = g('txt-line2'), sub = g('txt-sub'), cta = g('txt-cta');
+    if(!eyebrow && !line1 && !line2 && !sub && !cta) return msg('请先填写文字');
+    msg('保存中...', true);
+    api('/contents/index.html').then(function(r){
+        var c = bD(r.content), n = c;
+        function rep(re, val){ if(val) n = n.replace(re, function(m,a,b){ return a + val + b; }); }
+        rep(/(<p class="i-eyebrow">)[\s\S]*?(<\/p>)/, eyebrow);
+        if(line1) n = n.replace(/(<p class="i-line">)[\s\S]*?(<\/p>)/, function(m,a,b){ return a + line1 + b; });
+        if(line2) n = n.replace(/(<p class="i-line">)[\s\S]*?(<\/p>)/, function(m,a,b){ return a + line2 + b; });
+        rep(/(<p class="i-sub">)[\s\S]*?(<\/p>)/, sub);
+        rep(/(<button class="intro-cta"[^>]*>)[\s\S]*?(<\/button>)/, cta);
+        if(n === c) throw new Error('no change');
+        return api('/contents/index.html', 'PUT', { message: 'Update 开场文字', content: bE(n), sha: r.sha });
+    }).then(function(){
+        msg('开场文字已保存，稍后生效');
+    }).catch(function(){ msg('保存失败，请重试'); });
+}
+
+/* ===== 404 页面文字 ===== */
+function load404Texts() {
+    api('/contents/404.html').then(function(r){
+        var c = bD(r.content), m;
+        m = c.match(/<title>([\s\S]*?)<\/title>/); if(m) document.getElementById('t404-title').value = m[1];
+        m = c.match(/<h1 class="t">([\s\S]*?)<\/h1>/); if(m) document.getElementById('t404-t').value = m[1];
+        m = c.match(/<p class="s">([\s\S]*?)<\/p>/); if(m) document.getElementById('t404-s').value = m[1];
+        m = c.match(/<button id="go"[^>]*>([\s\S]*?)<\/button>/); if(m) document.getElementById('t404-go').value = m[1];
+        m = c.match(/<p class="hint">([\s\S]*?)<\/p>/); if(m) document.getElementById('t404-hint').value = m[1];
+    }).catch(function(){});
+}
+
+function save404Texts() {
+    var g = function(id){ return document.getElementById(id).value.trim(); };
+    var title = g('t404-title'), t = g('t404-t'), s = g('t404-s'), go = g('t404-go'), hint = g('t404-hint');
+    if(!title && !t && !s && !go && !hint) return msg('请先填写文字');
+    msg('保存中...', true);
+    api('/contents/404.html').then(function(r){
+        var c = bD(r.content), n = c;
+        function rep(re, val){ if(val) n = n.replace(re, function(m,a,b){ return a + val + b; }); }
+        rep(/(<title>)[\s\S]*?(<\/title>)/, title);
+        rep(/(<h1 class="t">)[\s\S]*?(<\/h1>)/, t);
+        rep(/(<p class="s">)[\s\S]*?(<\/p>)/, s);
+        rep(/(<button id="go"[^>]*>)[\s\S]*?(<\/button>)/, go);
+        rep(/(<p class="hint">)[\s\S]*?(<\/p>)/, hint);
+        if(n === c) throw new Error('no change');
+        return api('/contents/404.html', 'PUT', { message: 'Update 404文字', content: bE(n), sha: r.sha });
+    }).then(function(){
+        msg('404文字已保存，稍后生效');
     }).catch(function(){ msg('保存失败，请重试'); });
 }
 
